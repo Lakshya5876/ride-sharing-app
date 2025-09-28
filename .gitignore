@@ -1,0 +1,9 @@
+.aws-sam/
+sam-debug-deps/
+__pycache__/
+*.pyc
+venv/
+.venv/
+env/
+.env
+.DS_Store

@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Ride Sharing Backend (SAM)
+
+Globals:
+  Function:
+    Runtime: python3.9
+    Timeout: 10
+    MemorySize: 256
+    Environment:
+      Variables:
+        RIDERS_TABLE: !Ref RidersTable
+        DRIVERS_TABLE: !Ref DriversTable
+        RIDES_TABLE: !Ref RidesTable
+  Api:
+    Cors:
+      AllowOrigin: "'*'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowMethods: "'GET,POST,OPTIONS'"
+
+Resources:
+  # DynamoDB Tables (No changes here)
+  RidersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Riders
+      AttributeDefinitions: [{"AttributeName": "userId", "AttributeType": "S"}]
+      KeySchema: [{"AttributeName": "userId", "KeyType": "HASH"}]
+      BillingMode: PAY_PER_REQUEST
+  DriversTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Drivers
+      AttributeDefinitions: [{"AttributeName": "driverId", "AttributeType": "S"}]
+      KeySchema: [{"AttributeName": "driverId", "KeyType": "HASH"}]
+      BillingMode: PAY_PER_REQUEST
+  RidesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Rides
+      AttributeDefinitions: [{"AttributeName": "rideId", "AttributeType": "S"}]
+      KeySchema: [{"AttributeName": "rideId", "KeyType": "HASH"}]
+      BillingMode: PAY_PER_REQUEST
+
+  # API Gateway
+  RideSharingAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+
+  # Lambda Functions
+  ListDriversFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: list_drivers.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DriversTable
+      Events:
+        ListDrivers:
+          Type: Api
+          Properties:
+            Path: /list_drivers
+            Method: get
+            RestApiId: !Ref RideSharingAPI
+
+  CreateUserFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: create_user.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RidersTable
+      Events:
+        CreateUser:
+          Type: Api
+          Properties:
+            Path: /create_user
+            Method: post
+            RestApiId: !Ref RideSharingAPI
+  
+  # ... (and all your other functions: CreateDriver, UpdateLocation, etc.)
+  CreateDriverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: create_driver.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DriversTable
+      Events:
+        CreateDriver:
+          Type: Api
+          Properties:
+            Path: /create_driver
+            Method: post
+            RestApiId: !Ref RideSharingAPI
+
+  UpdateLocationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: update_location.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DriversTable
+      Events:
+        UpdateLocation:
+          Type: Api
+          Properties:
+            Path: /update_location
+            Method: post
+            RestApiId: !Ref RideSharingAPI
+
+  CreateRideFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: create_ride.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RidesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DriversTable
+      Events:
+        CreateRide:
+          Type: Api
+          Properties:
+            Path: /create_ride
+            Method: post
+            RestApiId: !Ref RideSharingAPI
+
+  CompleteRideFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: complete_ride.lambda_handler
+      CodeUri: functions/
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RidesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DriversTable
+      Events:
+        CompleteRide:
+          Type: Api
+          Properties:
+            Path: /complete_ride
+            Method: post
+            RestApiId: !Ref RideSharingAPI
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint"
+    Value: !Sub "https://${RideSharingAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/"
